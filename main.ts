@@ -180,8 +180,8 @@ export default class TimestampPlugin extends Plugin {
 
 		//Command that play/pauses the video
 		this.addCommand({
-			id: 'pause-player',
-			name: 'Pause player',
+			id: 'play-pause-player',
+			name: 'Play / Pause player',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				this.setPlaying(!this.player.props.playing)
 			}

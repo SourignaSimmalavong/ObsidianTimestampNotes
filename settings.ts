@@ -15,8 +15,8 @@ export interface TimestampPluginSettings {
 export const DEFAULT_SETTINGS: TimestampPluginSettings = {
 	noteTitle: "",
 	urlStartTimeMap: new Map<string, number>(),
-	urlColor: 'blue',
-	timestampColor: 'green',
+	urlColor: '#277ab5',
+	timestampColor: '#27b59d',
 	urlTextColor: 'white',
 	timestampTextColor: 'white',
 	forwardSeek: '10',
@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS: TimestampPluginSettings = {
 }
 
 const COLORS = { 'blue': 'blue', 'red': 'red', 'green': 'green', 'yellow': 'yellow', 'orange': 'orange', 'purple': 'purple', 'pink': 'pink', 'grey': 'grey', 'black': 'black', 'white': 'white' };
+const COLORS_VALUES = ['blue', 'red', 'green',  'yellow',  'orange',  'purple', 'pink',  'grey', 'black', 'white' ];
 
 const TIMES = { '5': '5', '10': '10', '15': '15', '20': '20', '25': '25', '30': '30', '35': '35', '40': '40', '45': '45', '50': '50', '55': '55', '60': '60', '65': '65', '70': '70', '75': '75', '80': '80', '85': '85', '90': '90', '95': '95', '100': '100', '105': '105', '110': '110', '115': '115', '120': '120' }
 
@@ -33,6 +34,26 @@ export class TimestampPluginSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: TimestampPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	is_hex_digit(digit: string): Boolean {
+		return digit >= '0' && digit <= '9' || digit.toLowerCase() >= 'a' && digit.toLowerCase() <= 'f'
+	}
+
+	is_valid_hex_color(color: string): boolean {
+		if (color.length != 7)
+		{
+			return false
+		}
+
+		for (var i: number = 1; i < color.length; i++)
+		{
+			if (!this.is_hex_digit(color[i]))
+			{
+				return false
+			}
+		}
+		return color[0] == '#'
 	}
 
 	display(): void {
@@ -58,53 +79,61 @@ export class TimestampPluginSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('URL Button Color')
 			.setDesc('Pick a color for the url button.')
-			.addDropdown(dropdown => dropdown
-				.addOptions(COLORS)
+			.addText(text => text
+				.setPlaceholder('Enter hex color or color name.')
 				.setValue(this.plugin.settings.urlColor)
 				.onChange(async (value) => {
-					this.plugin.settings.urlColor = value;
-					await this.plugin.saveSettings();
-				}
-				));
+					if (this.is_valid_hex_color(value) || COLORS_VALUES.includes(value))
+					{
+						this.plugin.settings.urlColor = value;
+						await this.plugin.saveSettings();
+					}
+				}));
 
 		// Customize url text color
 		new Setting(containerEl)
 			.setName('URL Text Color')
 			.setDesc('Pick a color for the URL text button.')
-			.addDropdown(dropdown => dropdown
-				.addOptions(COLORS)
+			.addText(text => text
+				.setPlaceholder('Enter hex color or color name.')
 				.setValue(this.plugin.settings.urlTextColor)
 				.onChange(async (value) => {
-					this.plugin.settings.urlTextColor = value;
-					await this.plugin.saveSettings();
-				}
-				));
+					if (this.is_valid_hex_color(value) || COLORS_VALUES.includes(value))
+					{
+						this.plugin.settings.urlTextColor = value;
+						await this.plugin.saveSettings();
+					}
+				}));
 
 		// Customize timestamp button color
 		new Setting(containerEl)
 			.setName('Timestamp Button Color')
 			.setDesc('Pick a color for the timestamp button.')
-			.addDropdown(dropdown => dropdown
-				.addOptions(COLORS)
+			.addText(text => text
+				.setPlaceholder('Enter hex color or color name.')
 				.setValue(this.plugin.settings.timestampColor)
 				.onChange(async (value) => {
-					this.plugin.settings.timestampColor = value;
-					await this.plugin.saveSettings();
-				}
-				));
+					if (this.is_valid_hex_color(value) || COLORS_VALUES.includes(value))
+					{
+						this.plugin.settings.timestampColor = value;
+						await this.plugin.saveSettings();
+					}
+				}));
 
 		// Customize timestamp text color
 		new Setting(containerEl)
 			.setName('Timestamp Text Color')
 			.setDesc('Pick a color for the timestamp text.')
-			.addDropdown(dropdown => dropdown
-				.addOptions(COLORS)
+			.addText(text => text
+				.setPlaceholder('Enter hex color or color name.')
 				.setValue(this.plugin.settings.timestampTextColor)
 				.onChange(async (value) => {
-					this.plugin.settings.timestampTextColor = value;
-					await this.plugin.saveSettings();
-				}
-				));
+					if (this.is_valid_hex_color(value) || COLORS_VALUES.includes(value))
+					{
+						this.plugin.settings.timestampTextColor = value;
+						await this.plugin.saveSettings();
+					}
+				}));
 
 		// Customize forward seek time
 		new Setting(containerEl)
