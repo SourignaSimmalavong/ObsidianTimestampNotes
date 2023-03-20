@@ -17,6 +17,7 @@
 		"@types/react-dom": "^18.0.4",
 		"@typescript-eslint/eslint-plugin": "^5.2.0",
 		"@typescript-eslint/parser": "^5.2.0",
+		"@types/electron": "^1.6.10",
 		"builtin-modules": "^3.2.0",
 		"esbuild": "0.13.12",
 		"obsidian": "^1.1.1",

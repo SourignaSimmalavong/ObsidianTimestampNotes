@@ -33,6 +33,18 @@ This plugin solves this issue by allowing you to:
 - Open videos at the timestamp you left off on (this is reset if plugin is disabled)
 - Close the player by right-clicking the icon above the video player and selecting close 
 
+## Local Video
+- Installation
+  - (Optional) Install "Show Current File Path" plugin (it makes it easier to copy the path of a Video in 1 click)
+  - Have a running http server in the background. I recommend "Static File Server" for this purpose.
+
+- Open a video
+  - just click on it in Obsidian Files browser. Though it doesn't use this plugin (so no hotkeys ...)
+
+- Add a button to play a Video
+  - Copy the path to your local video (you may open it in obsidian then click on the path in the StatusBar to copy it if you use "Show Current File Path" plugin)
+  - Run the 'Timestamp Notes: Add Local Video Button from clipboard'
+
 ## Valid Video Players
 This plugin should work with:
 - youtube
@@ -54,7 +66,7 @@ https://user-images.githubusercontent.com/39292521/167230491-f5439a62-a3f7-445c-
 1. Inserting timestamps into a bulleted section does not work. Unfortunately, code-blocks cannot be in-line with text. Make sure to press enter/insert the timestamp on a new line.
 2. If you decide to change the colors of your buttons/text, any old buttons/text will not update with the new colors until you reload the app. You can also click the '<>' when hovering over the code-block and it will refresh with the new colors.
 3. If your timestamp/video button dont work, simply switch between live-editing and viewing modes.
-4. Local videos currently cannot generate buttons, which means we can't use a static string(e.g. the path of a video), in other words, the button, to make the player to open a local video. That's a limitatoin of javascript. It's probably doable, but I couldn't find a way to make it work without glitching. For now, you need to manually write down the video path used by this markdown file, and re-select the video everytime you restart obsidian.
+4. Local video button might take some seconds before being generated.
 
 
 ## Other Authors

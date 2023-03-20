@@ -1,8 +1,10 @@
-import { Editor, MarkdownView, Plugin, Modal, App } from 'obsidian';
+import { Editor, MarkdownView, Plugin, Modal, App, FileSystemAdapter } from 'obsidian';
+import { clipboard } from 'electron';
 import ReactPlayer from 'react-player/lazy'
 
 import { VideoView, VIDEO_VIEW } from './view/VideoView';
 import { TimestampPluginSettings, TimestampPluginSettingTab, DEFAULT_SETTINGS } from 'settings';
+import * as path from 'path';
 
 const ERRORS: { [key: string]: string } = {
 	"INVALID_URL": "\n> [!error] Invalid Video URL\n> The highlighted link is not a valid video url. Please try again with a valid link.\n",
@@ -94,29 +96,25 @@ export default class TimestampPlugin extends Plugin {
 
 		// Markdown processor that turns video urls into buttons to open views of the video
 		this.registerMarkdownCodeBlockProcessor("timestamp-url", (source, el, ctx) => {
-			const url = source.trim();
-			if (ReactPlayer.canPlay(url)) {
-				// Creates button for video url
-				const div = el.createEl("div");
-				const button = div.createEl("button");
-				button.innerText = url;
-				button.style.backgroundColor = this.settings.urlColor;
-				button.style.color = this.settings.urlTextColor;
-
-				button.addEventListener("click", () => {
-					this.activateView(url, this.editor);
-				});
-			} else {
-				if (this.editor) {
-					this.editor.replaceSelection(this.editor.getSelection() + "\n" + ERRORS["INVALID_URL"]);
-				}
+			const tokens: string[] = source.trim().split('\n');
+			if (tokens.length != 2)
+			{
+				return;
 			}
+
+			const displayed_text = tokens[0];
+			const url = tokens[1];
+
+			fetch(url)
+				.then(response => response.blob())
+				.then(blobData => this.open_URL(URL.createObjectURL(blobData), displayed_text, el))
+				.catch(reason => console.log("Failed to open " + url + ": " + reason));
 		});
 
 		// Command that gets selected video link and sends it to view which passes it to React component
 		this.addCommand({
-			id: 'open-online-video',
-			name: 'Open Online Video',
+			id: 'add-online-video-button-from-clipboard',
+			name: 'Add online Video Button from clipboard',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				// Get selected text and match against video url to convert link to video video id
 				const url = editor.getSelection().trim();
@@ -133,6 +131,42 @@ export default class TimestampPlugin extends Plugin {
 				}
 				editor.setCursor(editor.getCursor().line + 2);
 				editor.focus();
+			}
+		});
+
+		this.addCommand({
+			id: 'open-local-video-from-clipboard',
+			name: 'Open Local Video from clipboard',
+			editorCallback: (editor: Editor, view: MarkdownView) => {
+				this.editor = editor;				
+				
+				let clipboardText = clipboard.readText('clipboard');
+				if (!clipboardText) {
+					return;
+				}
+				
+				var relativePathURI: string = this.filepathToRelativeURI(clipboardText);
+				this.activateView(relativePathURI, this.editor);
+	
+				return true;
+			}
+		});
+
+		this.addCommand({
+			id: 'add-local-video-button-from-clipboard',
+			name: 'Add Local Video Button from clipboard',
+			editorCallback: (editor: Editor, view: MarkdownView) => {
+				this.editor = editor;				
+
+				var clipboardText = clipboard.readText('clipboard');
+				if (!clipboardText) {
+					return;
+				}		
+
+				var filename: string = clipboardText.substring(clipboardText.lastIndexOf("\\") + 1);
+				var relativeFileURI: string = this.filepathToRelativeURI(clipboardText);
+				editor.replaceSelection("```timestamp-url \n" + filename + "\n" + relativeFileURI + "\n```\n");
+				return true;
 			}
 		});
 
@@ -303,8 +337,8 @@ export default class TimestampPlugin extends Plugin {
 
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
 		this.addCommand({
-			id: 'open-local-video',
-			name: 'Open Local Video',
+			id: 'open-local-video-dialog',
+			name: 'Open Local Video (Dialog)',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				this.editor = editor;
 				new OpenLocalVideoModal(this.app, this.activateView.bind(this), editor).open();
@@ -387,6 +421,132 @@ export default class TimestampPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
+
+	open_URL(url: string, display_text: string, el: HTMLElement){
+		if (ReactPlayer.canPlay(url)) {
+			// Creates button for video url
+			const div = el.createEl("div");
+			const button = div.createEl("button");
+			button.innerText = display_text;
+			button.style.backgroundColor = this.settings.urlColor;
+			button.style.color = this.settings.urlTextColor;
+
+			button.addEventListener("click", () => {
+				this.activateView(url, this.editor);
+			});
+		} else {
+			if (this.editor) {
+				this.editor.replaceSelection(this.editor.getSelection() + "\n" + ERRORS["INVALID_URL"]);
+			}
+		}
+
+	}
+
+	getVaulteAbsolutePath(app: App){
+		let adapter = app.vault.adapter;
+		if (adapter instanceof FileSystemAdapter) {
+			return adapter.getBasePath();
+		}
+		return null;
+	}
+
+	filepathToRelativeURI(filepath: string) : string{
+		var vaultAbsolutePath: string = this.getVaulteAbsolutePath(this.app);
+		var serverRoot: string = path.join(vaultAbsolutePath, this.settings.serverRoot);
+
+		var serverRootURI: string = this.pathToUri(serverRoot);
+		var fileURI: string = this.pathToUri(filepath);
+
+		var relativeFileURI: string = fileURI.replace(serverRootURI, "");
+		relativeFileURI = "http://localhost:" + this.settings.serverPort + relativeFileURI;
+
+		return relativeFileURI;
+	}
+
+	/////////////////////////////////////////////////////
+	// Code to convert path to URI "stolen" from https://github.com/MichalBures/obsidian-file-path-to-uri/blob/master/main.ts
+
+	/**
+	 * Does the text have any '\' or '/'?
+	 */
+	hasSlashes(text: string) {
+		// Does it have any '\' or '/'?
+		const regexHasAnySlash = /.*([\\\/]).*/g;
+
+		if (typeof text !== 'string') {
+			return false;
+		}
+
+		let matches = text.match(regexHasAnySlash);
+		return !!matches;
+	}
+
+	/**
+	 * Trim whitespace and remove surrounding "
+	 */
+	cleanupText(text: string) {
+		if (typeof text !== 'string') {
+			return '';
+		}
+
+		text = text.trim();
+
+		// Remove surrounding "
+		if (text.startsWith('"')) {
+			text = text.substr(1);
+		}
+		if (text.endsWith('"')) {
+			text = text.substr(0, text.length - 1);
+		}
+
+		return text;
+	}
+
+	pathToUri(pathURL: string) : string {
+		pathURL = this.cleanupText(pathURL);
+
+		// Paste the text as usual if it's not file path
+		if (pathURL.startsWith('file:') || !this.hasSlashes(pathURL)) {
+			return pathURL;
+		}
+
+		// network path '\\path'
+		if (pathURL.startsWith('\\\\')) {
+			let endsWithSlash =
+				pathURL.endsWith('\\') || pathURL.endsWith('/');
+			// URL throws error on invalid url
+			try {
+				let url = new URL(pathURL);
+
+				let link = url.href.replace('file://', 'file:///%5C%5C');
+				if (link.endsWith('/') && !endsWithSlash) {
+					link = link.slice(0, -1);
+				}
+
+				return link;
+			} catch (e) {
+				return;
+			}
+		}
+		// path C:\Users\ or \System\etc
+		else {
+			if (!this.hasSlashes(pathURL)) {
+				return;
+			}
+
+			// URL throws error on invalid url
+			try {
+				let url = new URL('file://' + pathURL);
+				return url.href;
+				// this.editor.replaceSelection(url.href, 'around');
+			} catch (e) {
+				return;
+			}
+		}
+	}
+
+	// End of stolen code.
+	////////////////////////////////////////////////////
 
 }
 

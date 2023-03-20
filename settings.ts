@@ -14,6 +14,8 @@ export interface TimestampPluginSettings {
 	seekRepeatResetTime: string;
 	maxCumulatedSeekFactor: string;
 	speedFactor: string;
+	serverRoot: string;
+	serverPort: string;
 }
 
 export const DEFAULT_SETTINGS: TimestampPluginSettings = {
@@ -29,6 +31,8 @@ export const DEFAULT_SETTINGS: TimestampPluginSettings = {
 	seekRepeatResetTime: '500',
 	maxCumulatedSeekFactor: '300',
 	speedFactor: '0.10',
+	serverRoot: '',
+	serverPort: '8080'
 }
 
 const COLORS = { 'blue': 'blue', 'red': 'red', 'green': 'green', 'yellow': 'yellow', 'orange': 'orange', 'purple': 'purple', 'pink': 'pink', 'grey': 'grey', 'black': 'black', 'white': 'white' };
@@ -217,6 +221,29 @@ export class TimestampPluginSettingTab extends PluginSettingTab {
 					this.plugin.settings.speedFactor = value;
 					await this.plugin.saveSettings();
 				}));
-	
+
+		// Customize root server for local files
+		new Setting(containerEl)
+		.setName('Served folder')
+		.setDesc('All local files within this folder will be accessible (try "Static file server" plugin if you do not have any file server).')
+		.addText(text => text
+			.setPlaceholder('Enter a path relative to the vault root (empty for the vault root itself)')
+			.setValue(this.plugin.settings.serverRoot)
+			.onChange(async (value) => {
+				this.plugin.settings.serverRoot = value;
+				await this.plugin.saveSettings();
+			}));
+		// Customize server port for local files
+		new Setting(containerEl)
+		.setName('Served port')
+		.setDesc('Port used by the file server (try "Static file server" plugin if you do not have any file server).')
+		.addText(text => text
+			.setPlaceholder('Enter the server port')
+			.setValue(this.plugin.settings.serverPort)
+			.onChange(async (value) => {
+				this.plugin.settings.serverPort = value;
+				await this.plugin.saveSettings();
+			}));
+
 	}
 }
