@@ -35,7 +35,7 @@ This plugin solves this issue by allowing you to:
 
 ## Local Video
 - Installation
-  - (Optional) Install "Show Current File Path" plugin (it makes it easier to copy the path of a Video in 1 click)
+  - (Optional) Install "Show Current File Path" plugin, it makes it easier to copy the path of a Video in 1 click. Otherwise Ctrl+P "Copy file Path" once you've opened it within Obsidian.
   - Have a running http server in the background. I recommend "Static File Server" for this purpose.
 
 - Open a video

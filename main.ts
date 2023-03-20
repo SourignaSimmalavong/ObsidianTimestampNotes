@@ -116,15 +116,20 @@ export default class TimestampPlugin extends Plugin {
 			id: 'add-online-video-button-from-clipboard',
 			name: 'Add online Video Button from clipboard',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
+				var clipboardText = clipboard.readText('clipboard');
+				if (!clipboardText) {
+					return;
+				}		
+
 				// Get selected text and match against video url to convert link to video video id
-				const url = editor.getSelection().trim();
+				const url = clipboardText.trim();
 				
 				// Activate the view with the valid link
 				if (ReactPlayer.canPlay(url)) {
 					this.activateView(url, editor);
 					this.settings.noteTitle ?
-						editor.replaceSelection("\n" + this.settings.noteTitle + "\n" + "```timestamp-url \n " + url + "\n ```\n") :
-						editor.replaceSelection("```timestamp-url \n " + url + "\n ```\n")
+						editor.replaceSelection("\n" + this.settings.noteTitle + "\n" + "```timestamp-url \n Title" + url + "\n ```\n") :
+						editor.replaceSelection("```timestamp-url \n Title\n" + url + "\n ```\n")
 					this.editor = editor;
 				} else {
 					editor.replaceSelection(ERRORS["INVALID_URL"])
@@ -163,7 +168,15 @@ export default class TimestampPlugin extends Plugin {
 					return;
 				}		
 
-				var filename: string = clipboardText.substring(clipboardText.lastIndexOf("\\") + 1);
+				var filename: string = "";
+				if (clipboardText.contains("\\"))
+				{
+					filename = clipboardText.substring(clipboardText.lastIndexOf("\\") + 1);
+				}
+				else
+				{
+					filename = clipboardText.substring(clipboardText.lastIndexOf("/") + 1);
+				}
 				var relativeFileURI: string = this.filepathToRelativeURI(clipboardText);
 				editor.replaceSelection("```timestamp-url \n" + filename + "\n" + relativeFileURI + "\n```\n");
 				return true;
@@ -455,7 +468,17 @@ export default class TimestampPlugin extends Plugin {
 		var serverRoot: string = path.join(vaultAbsolutePath, this.settings.serverRoot);
 
 		var serverRootURI: string = this.pathToUri(serverRoot);
-		var fileURI: string = this.pathToUri(filepath);
+		var fileURI: string = "";
+		if (path.isAbsolute(filepath))
+		{
+			fileURI = this.pathToUri(filepath);
+		}
+		else
+		{
+			// Assume it is a path within the vault?
+			fileURI = path.join(vaultAbsolutePath, filepath);
+			fileURI = this.pathToUri(fileURI);
+		}
 
 		var relativeFileURI: string = fileURI.replace(serverRootURI, "");
 		relativeFileURI = "http://localhost:" + this.settings.serverPort + relativeFileURI;
