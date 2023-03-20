@@ -10,6 +10,10 @@ export interface TimestampPluginSettings {
 	timestampTextColor: string;
 	forwardSeek: string;
 	backwardsSeek: string;
+	seekFactor: string;
+	seekRepeatResetTime: string;
+	maxCumulatedSeekFactor: string;
+	speedFactor: string;
 }
 
 export const DEFAULT_SETTINGS: TimestampPluginSettings = {
@@ -19,14 +23,18 @@ export const DEFAULT_SETTINGS: TimestampPluginSettings = {
 	timestampColor: '#27b59d',
 	urlTextColor: 'white',
 	timestampTextColor: 'white',
-	forwardSeek: '10',
-	backwardsSeek: '10'
+	forwardSeek: '1',
+	backwardsSeek: '1',
+	seekFactor: '1.5',
+	seekRepeatResetTime: '500',
+	maxCumulatedSeekFactor: '300',
+	speedFactor: '0.10',
 }
 
 const COLORS = { 'blue': 'blue', 'red': 'red', 'green': 'green', 'yellow': 'yellow', 'orange': 'orange', 'purple': 'purple', 'pink': 'pink', 'grey': 'grey', 'black': 'black', 'white': 'white' };
 const COLORS_VALUES = ['blue', 'red', 'green',  'yellow',  'orange',  'purple', 'pink',  'grey', 'black', 'white' ];
 
-const TIMES = { '5': '5', '10': '10', '15': '15', '20': '20', '25': '25', '30': '30', '35': '35', '40': '40', '45': '45', '50': '50', '55': '55', '60': '60', '65': '65', '70': '70', '75': '75', '80': '80', '85': '85', '90': '90', '95': '95', '100': '100', '105': '105', '110': '110', '115': '115', '120': '120' }
+const TIMES = { '1': '1', '2': '2', '3': '3', '4':'4', '5': '5', '10': '10', '15': '15', '20': '20', '25': '25', '30': '30', '35': '35', '40': '40', '45': '45', '50': '50', '55': '55', '60': '60', '65': '65', '70': '70', '75': '75', '80': '80', '85': '85', '90': '90', '95': '95', '100': '100', '105': '105', '110': '110', '115': '115', '120': '120' }
 
 export class TimestampPluginSettingTab extends PluginSettingTab {
 	plugin: TimestampPlugin;
@@ -160,5 +168,55 @@ export class TimestampPluginSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}
 				));
+
+		// Customize seek factor
+		new Setting(containerEl)
+			.setName('Seek factor')
+			.setDesc('Represent how fast the seek goes when calling "forward seek" or "backward seek" quickly in a row.')
+			.addText(text => text
+				.setPlaceholder('Enter a floating number')
+				.setValue(this.plugin.settings.seekFactor)
+				.onChange(async (value) => {
+					this.plugin.settings.seekFactor = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Customize seek repeat reset time
+		new Setting(containerEl)
+			.setName('Seek repeat reset time')
+			.setDesc('Determine how fast (in ms) the seek multiplier will reset.')
+			.addText(text => text
+				.setPlaceholder('Enter an integral number')
+				.setValue(this.plugin.settings.seekRepeatResetTime)
+				.onChange(async (value) => {
+					this.plugin.settings.seekRepeatResetTime = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Customize seek repeat reset time
+		new Setting(containerEl)
+			.setName('Maximum cumulated seek factor')
+			.setDesc('Determine the maximum seek value.')
+			.addText(text => text
+				.setPlaceholder('Enter a floating number')
+				.setValue(this.plugin.settings.maxCumulatedSeekFactor)
+				.onChange(async (value) => {
+					this.plugin.settings.maxCumulatedSeekFactor = value;
+					await this.plugin.saveSettings();
+				}));
+
+
+		// Customize speed factor
+		new Setting(containerEl)
+			.setName('Speed factor')
+			.setDesc('This is the percentage of speed added or subtracted to current speed playback.')
+			.addText(text => text
+				.setPlaceholder('Enter a number')
+				.setValue(this.plugin.settings.speedFactor)
+				.onChange(async (value) => {
+					this.plugin.settings.speedFactor = value;
+					await this.plugin.saveSettings();
+				}));
+	
 	}
 }

@@ -15,6 +15,9 @@ export default class TimestampPlugin extends Plugin {
 	setPlaying: React.Dispatch<React.SetStateAction<boolean>>;
 	setPlaybackRate: React.Dispatch<React.SetStateAction<number>>;
 	editor: Editor;
+	last_seek: DOMHighResTimeStamp = performance.now();
+	cumulated_seek_factor: number = 1;
+	was_seek_forward: boolean = false;
 	
 
 	async onload() {
@@ -187,12 +190,41 @@ export default class TimestampPlugin extends Plugin {
 			}
 		});
 
+		// Go back to the beginning of the video.
+		this.addCommand({
+			id: 'restart-video',
+			name: 'Restart video',
+			editorCallback: (editor: Editor, view: MarkdownView) => {
+				if (this.player) 
+				{
+					this.player.seekTo(0);
+				}
+			}
+		});
+
 		// Seek forward by set amount of seconds
 		this.addCommand({
 			id: 'seek-forward',
 			name: 'Seek Forward',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
-				if (this.player) this.player.seekTo(this.player.getCurrentTime() + parseInt(this.settings.forwardSeek));
+				if (this.player) 
+				{
+					var new_seek_timestamp = window.performance.now();
+					var forward_seek: number = parseInt(this.settings.forwardSeek);
+					if ((new_seek_timestamp - this.last_seek) < parseInt(this.settings.seekRepeatResetTime) && this.was_seek_forward)
+					{
+						this.cumulated_seek_factor *= Math.min(parseFloat(this.settings.seekFactor), parseFloat(this.settings.maxCumulatedSeekFactor));
+					}
+					else
+					{
+						this.cumulated_seek_factor = 1;
+					}
+					forward_seek *= this.cumulated_seek_factor;
+					this.last_seek = new_seek_timestamp;
+					this.was_seek_forward = true;
+
+					this.player.seekTo(this.player.getCurrentTime() + forward_seek);
+				}
 			}
 		});
 
@@ -201,7 +233,24 @@ export default class TimestampPlugin extends Plugin {
 			id: 'seek-backward',
 			name: 'Seek Backward',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
-				if (this.player) this.player.seekTo(this.player.getCurrentTime() - parseInt(this.settings.backwardsSeek));
+				if (this.player)
+				{
+					var new_seek_timestamp = window.performance.now();
+					var backward_seek: number = parseInt(this.settings.backwardsSeek);
+					if ((new_seek_timestamp - this.last_seek) < parseInt(this.settings.seekRepeatResetTime) && !this.was_seek_forward)
+					{
+						this.cumulated_seek_factor *= Math.min(parseFloat(this.settings.seekFactor), parseFloat(this.settings.maxCumulatedSeekFactor));
+					}
+					else
+					{
+						this.cumulated_seek_factor = 1;
+					}
+					backward_seek *= this.cumulated_seek_factor;
+					this.last_seek = new_seek_timestamp;
+					this.was_seek_forward = false;
+
+					this.player.seekTo(this.player.getCurrentTime() - backward_seek);
+				}
 			}
 		});
 
@@ -210,9 +259,16 @@ export default class TimestampPlugin extends Plugin {
 			id: 'increase-play-speed',
 			name: 'Increase Play Speed',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
-				if (this.player) {
-					if(this.player.props.playbackRate < 2)
-					this.setPlaybackRate(this.player.props.playbackRate + 0.25);
+				if (this.player) 
+				{
+					if(this.player.props.playbackRate < 10)
+					{
+						var speedFactor: number = parseFloat(this.settings.speedFactor);
+						if(this.player.props.playbackRate > speedFactor)
+						{
+							this.setPlaybackRate(this.player.props.playbackRate + speedFactor);
+						}
+					}
 				}
 			}
 		});
@@ -222,9 +278,25 @@ export default class TimestampPlugin extends Plugin {
 			id: 'decrease-play-speed',
 			name: 'Decrease Play Speed',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
-				if (this.player) {
-					if(this.player.props.playbackRate > 0.25)
-					this.setPlaybackRate(this.player.props.playbackRate - 0.25);
+				if (this.player) 
+				{
+					var speedFactor: number = parseFloat(this.settings.speedFactor);
+					if(this.player.props.playbackRate > speedFactor)
+					{
+						this.setPlaybackRate(this.player.props.playbackRate - speedFactor);
+					}
+				}
+			}
+		});
+
+		// Reset youtube player playback speed
+		this.addCommand({
+			id: 'reset-play-speed',
+			name: 'Reset Play Speed',
+			editorCallback: (editor: Editor, view: MarkdownView) => {
+				if (this.player) 
+				{
+					this.setPlaybackRate(1);
 				}
 			}
 		});
