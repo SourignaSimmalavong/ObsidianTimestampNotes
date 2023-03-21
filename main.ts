@@ -1,4 +1,4 @@
-import { Editor, MarkdownView, Plugin, Modal, App, FileSystemAdapter } from 'obsidian';
+import { Editor, MarkdownView, Plugin, Modal, App, FileSystemAdapter, WorkspaceLeaf } from 'obsidian';
 import { clipboard } from 'electron';
 import ReactPlayer from 'react-player/lazy'
 
@@ -20,7 +20,9 @@ export default class TimestampPlugin extends Plugin {
 	last_seek: DOMHighResTimeStamp = performance.now();
 	cumulated_seek_factor: number = 1;
 	was_seek_forward: boolean = false;
-	
+
+	uriToClickLambdas: Map<string, () => void> = new Map<string, () => void>();
+	urlToLeaf: Map<string, WorkspaceLeaf> = new Map<string, WorkspaceLeaf>();
 
 	async onload() {
 		// Register view
@@ -102,13 +104,45 @@ export default class TimestampPlugin extends Plugin {
 				return;
 			}
 
-			const displayed_text = tokens[0];
-			const url = tokens[1];
+			const displayedText = tokens[0];
+			const uri = tokens[1];
 
-			fetch(url)
+			const button = el.createEl("button");
+			button.innerText = "Please wait ...";
+			button.style.backgroundColor = this.settings.urlColor;
+			button.style.color = this.settings.urlTextColor;
+
+			fetch(uri)
 				.then(response => response.blob())
-				.then(blobData => this.open_URL(URL.createObjectURL(blobData), displayed_text, el))
-				.catch(reason => console.log("Failed to open " + url + ": " + reason));
+				.then(blobData => this.open_URL(URL.createObjectURL(blobData), displayedText, button, uri))
+				.catch(reason => console.log("Failed to open " + uri + ": " + reason));
+
+			this.app.workspace.on('active-leaf-change', (activeLeaf) => {
+				const buttonLeaf = this.urlToLeaf.get(uri);
+				
+				if (activeLeaf != null)
+				{	
+					// @ts-ignore
+					console.log(activeLeaf.id);
+				}
+				if (buttonLeaf != null)
+				{	
+					// @ts-ignore
+					console.log(buttonLeaf.id);
+				}
+				
+
+				if (activeLeaf != null && buttonLeaf != null)
+				{
+					// @ts-ignore
+					if (activeLeaf.id == buttonLeaf.id)
+					{
+						console.log("same => refresh");
+						this.refreshButton(button, uri);
+					}
+				}
+			});
+
 		});
 
 		// Command that gets selected video link and sends it to view which passes it to React component
@@ -126,7 +160,7 @@ export default class TimestampPlugin extends Plugin {
 				
 				// Activate the view with the valid link
 				if (ReactPlayer.canPlay(url)) {
-					this.activateView(url, editor);
+					this.activateOnlineView(url, editor);
 					this.settings.noteTitle ?
 						editor.replaceSelection("\n" + this.settings.noteTitle + "\n" + "```timestamp-url \n Title" + url + "\n ```\n") :
 						editor.replaceSelection("```timestamp-url \n Title\n" + url + "\n ```\n")
@@ -151,8 +185,11 @@ export default class TimestampPlugin extends Plugin {
 				}
 				
 				var relativePathURI: string = this.filepathToRelativeURI(clipboardText);
-				this.activateView(relativePathURI, this.editor);
-	
+				fetch(relativePathURI)
+					.then(response => response.blob())
+					.then(blobData => this.activateView(URL.createObjectURL(blobData), relativePathURI, this.editor))
+					.catch(reason => console.log("Failed to open " + relativePathURI + ": " + reason));
+
 				return true;
 			}
 		});
@@ -179,6 +216,7 @@ export default class TimestampPlugin extends Plugin {
 				}
 				var relativeFileURI: string = this.filepathToRelativeURI(clipboardText);
 				editor.replaceSelection("```timestamp-url \n" + filename + "\n" + relativeFileURI + "\n```\n");
+
 				return true;
 			}
 		});
@@ -373,7 +411,7 @@ export default class TimestampPlugin extends Plugin {
 	}
 
 	// This is called when a valid url is found => it activates the View which loads the React view
-	async activateView(url: string, editor: Editor) {
+	async activateOnlineView(url: string, editor: Editor) {
 		this.app.workspace.detachLeavesOfType(VIDEO_VIEW);
 
 		await this.app.workspace.getRightLeaf(false).setViewState({
@@ -420,6 +458,83 @@ export default class TimestampPlugin extends Plugin {
 		});
 	}
 
+	// This is called when a valid url is found => it activates the View which loads the React view
+	async activateView(blobURL: string, uri: string, editor: Editor, button?: HTMLButtonElement) {
+		if (this.settings.openInRightPane)
+		{
+			this.app.workspace.detachLeavesOfType(VIDEO_VIEW);
+
+			await this.app.workspace.getRightLeaf(false).setViewState({
+				type: VIDEO_VIEW,
+				active: true,
+			});
+		}
+		else{
+			this.app.workspace.detachLeavesOfType(VIDEO_VIEW);
+
+			await this.app.workspace.getLeaf(true).setViewState({
+				type: VIDEO_VIEW,
+				active: false,
+			});
+		}
+
+		this.app.workspace.revealLeaf(
+			this.app.workspace.getLeavesOfType(VIDEO_VIEW)[0]
+		);
+
+		// This triggers the React component to be loaded
+		this.app.workspace.getLeavesOfType(VIDEO_VIEW).forEach(async (leaf) => {
+			if (leaf.view instanceof VideoView) {
+
+				const setupPlayer = (player: ReactPlayer, setPlaying: React.Dispatch<React.SetStateAction<boolean>>, setPlaybackRate: React.Dispatch<React.SetStateAction<number>>) => {
+					this.player = player;
+					this.setPlaying = setPlaying;
+					this.setPlaybackRate = setPlaybackRate;
+				}
+
+				const setupError = (err: string) => {
+					console.log(`[!error] Streaming Error \n> ${err}`);
+					if (button)
+					{
+						this.refreshButton(button, uri);
+
+						// Enforce the click of the button to reopen the video with a correct blob url.
+						if (this.uriToClickLambdas.has(uri))
+						{
+							// const f: () => void = this.uriToClickLambdas.get(uri);
+							// f.apply(this);
+						}
+					}
+					// editor.replaceSelection(editor.getSelection() + `\n> [!error] Streaming Error \n> ${err}\n`);
+				}
+
+				const saveTimeOnUnload = async () => {
+					if (this.player) {
+						this.settings.urlStartTimeMap.set(blobURL, Number(this.player.getCurrentTime().toFixed(0)));
+					}
+
+					if (button)
+					{
+						this.refreshButton(button, uri);
+					}
+
+					await this.saveSettings();
+				}
+
+				// create a new video instance, sets up state/unload functionality, and passes in a start time if available else 0
+				leaf.setEphemeralState({
+					url: blobURL,
+					setupPlayer,
+					setupError,
+					saveTimeOnUnload,
+					start: ~~this.settings.urlStartTimeMap.get(blobURL)
+				});
+
+				await this.saveSettings();
+			}
+		});
+	}
+
 	async loadSettings() {
 		// Fix for a weird bug that turns default map into a normal object when loaded
 		const data = await this.loadData()
@@ -435,21 +550,25 @@ export default class TimestampPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	open_URL(url: string, display_text: string, el: HTMLElement){
-		if (ReactPlayer.canPlay(url)) {
+	open_URL(blobURL: string, displayedText: string, button: HTMLButtonElement, uri: string){
+		if (ReactPlayer.canPlay(blobURL)) {
 			// Creates button for video url
-			const div = el.createEl("div");
-			const button = div.createEl("button");
-			button.innerText = display_text;
-			button.style.backgroundColor = this.settings.urlColor;
-			button.style.color = this.settings.urlTextColor;
+			// const div = el.createEl("div");
+			// const button = div.createEl("button");
+			// button.innerText = display_text;
+			// button.style.backgroundColor = this.settings.urlColor;
+			// button.style.color = this.settings.urlTextColor;
 
-			button.addEventListener("click", () => {
-				this.activateView(url, this.editor);
-			});
+			// button.addEventListener("click", () => {
+			// 	this.activateView(url, this.editor);
+			// });
+			button.innerText = displayedText;
+			this.uriToClickLambdas.set(uri, this.createLambdaFromURI(uri, blobURL, button));
+			button.addEventListener("click", this.uriToClickLambdas.get(uri));
 		} else {
 			if (this.editor) {
-				this.editor.replaceSelection(this.editor.getSelection() + "\n" + ERRORS["INVALID_URL"]);
+				console.log(ERRORS["INVALID_URL"]);
+				//this.editor.replaceSelection(this.editor.getSelection() + "\n" + ERRORS["INVALID_URL"]);
 			}
 		}
 
@@ -484,6 +603,43 @@ export default class TimestampPlugin extends Plugin {
 		relativeFileURI = "http://localhost:" + this.settings.serverPort + relativeFileURI;
 
 		return relativeFileURI;
+	}
+
+	createLambdaFromURI(uri: string, blobURL: string, button: HTMLButtonElement)
+	{
+		return () => {
+			if (!this.urlToLeaf.has(uri))
+			{
+				if (this.app.workspace.activeLeaf)
+				{
+					// Any cleaner way to do that?
+					// @ts-ignore
+					this.urlToLeaf.set(uri, this.app.workspace.activeLeaf);
+				}
+				else{
+					console.log("Could not fetch the active leaf id.");
+					return;
+				}
+			}
+
+			this.activateView(blobURL, uri, this.editor, button);
+		};
+	}
+
+	async refreshButton(button : HTMLButtonElement, uri: string){
+		const displayedText: string = button.innerText;
+		button.innerText = "Please wait ...";
+		console.log("Please wait ...");
+		fetch(uri)
+			.then(response => response.blob())
+			.then(blobData => {
+				button.innerText = displayedText; 
+				button.removeEventListener('click', this.uriToClickLambdas.get(uri));
+				const newBlobURL: string = URL.createObjectURL(blobData);
+				this.uriToClickLambdas.set(uri, this.createLambdaFromURI(uri, newBlobURL, button));
+				button.addEventListener("click", this.uriToClickLambdas.get(uri));
+				console.log("button refreshed");
+			});
 	}
 
 	/////////////////////////////////////////////////////

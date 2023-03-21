@@ -16,6 +16,7 @@ export interface TimestampPluginSettings {
 	speedFactor: string;
 	serverRoot: string;
 	serverPort: string;
+	openInRightPane: boolean;
 }
 
 export const DEFAULT_SETTINGS: TimestampPluginSettings = {
@@ -32,7 +33,8 @@ export const DEFAULT_SETTINGS: TimestampPluginSettings = {
 	maxCumulatedSeekFactor: '300',
 	speedFactor: '0.10',
 	serverRoot: '',
-	serverPort: '8080'
+	serverPort: '8080',
+	openInRightPane: false
 }
 
 const COLORS = { 'blue': 'blue', 'red': 'red', 'green': 'green', 'yellow': 'yellow', 'orange': 'orange', 'purple': 'purple', 'pink': 'pink', 'grey': 'grey', 'black': 'black', 'white': 'white' };
@@ -242,6 +244,16 @@ export class TimestampPluginSettingTab extends PluginSettingTab {
 			.setValue(this.plugin.settings.serverPort)
 			.onChange(async (value) => {
 				this.plugin.settings.serverPort = value;
+				await this.plugin.saveSettings();
+			}));
+		// Customize server port for local files
+		new Setting(containerEl)
+		.setName('Open in right pane')
+		.setDesc('Either open in right pane or open in a new tab.')
+		.addToggle(toggleValue => toggleValue
+			.setValue(this.plugin.settings.openInRightPane)
+			.onChange(async (value) => {
+				this.plugin.settings.openInRightPane = value;
 				await this.plugin.saveSettings();
 			}));
 

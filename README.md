@@ -67,6 +67,7 @@ https://user-images.githubusercontent.com/39292521/167230491-f5439a62-a3f7-445c-
 2. If you decide to change the colors of your buttons/text, any old buttons/text will not update with the new colors until you reload the app. You can also click the '<>' when hovering over the code-block and it will refresh with the new colors.
 3. If your timestamp/video button dont work, simply switch between live-editing and viewing modes.
 4. Local video button might take some seconds before being generated.
+5. Clicking on the tab label of the video or setting the focus on the tab (click or through hotkeys) will close the video. Drag and drop of the video tab is still possible though.
 
 
 ## Other Authors
