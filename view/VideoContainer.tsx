@@ -19,11 +19,13 @@ export const VideoContainer = ({ url, setupPlayer, start, setupError }: VideoCon
 	const [playbackRate, setPlaybackRate] = useState(1);
 
 	const onReady = () => {
-		// Starts player at last played time if the video has been played before
-		if (start) playerRef.current.seekTo(start);
-
 		// Sets up video player to be accessed in main.ts
 		if (playerRef) setupPlayer(playerRef.current, setPlaying, setPlaybackRate);
+	}
+
+	const onStart = () => {
+		// Starts player at last played time if the video has been played before
+		if (start) playerRef.current.seekTo(start);
 	}
 
 	return (
@@ -37,6 +39,7 @@ export const VideoContainer = ({ url, setupPlayer, start, setupError }: VideoCon
 				height='100%'
 				playbackRate={playbackRate}
 				onReady={onReady}
+				onStart={onStart}
 				onError={(err) => setupError(err ?
 					err.message :
 					`Video is unplayable due to privacy settings, streaming permissions, etc.`)} // Error handling for invalid URLs
