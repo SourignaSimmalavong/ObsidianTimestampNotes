@@ -14,6 +14,7 @@ export interface TimestampPluginSettings {
 	seekRepeatResetTime: string;
 	maxCumulatedSeekFactor: string;
 	speedFactor: string;
+	maxSpeed : number;
 	serverRoot: string;
 	serverPort: string;
 	openInRightPane: boolean;
@@ -32,6 +33,7 @@ export const DEFAULT_SETTINGS: TimestampPluginSettings = {
 	seekRepeatResetTime: '500',
 	maxCumulatedSeekFactor: '300',
 	speedFactor: '0.10',
+	maxSpeed: 10,
 	serverRoot: '',
 	serverPort: '8080',
 	openInRightPane: false

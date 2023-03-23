@@ -14,6 +14,7 @@ export class VideoView extends ItemView {
 	component: ReactDOM.Renderer
 	saveTimeOnUnload: () => void
 	root: Root
+	displayText: string
 	constructor(leaf: WorkspaceLeaf) {
 		super(leaf);
 		this.saveTimeOnUnload = () => { };
@@ -25,7 +26,7 @@ export class VideoView extends ItemView {
 	}
 
 	getDisplayText() {
-		return "Timestamp Video";
+		return this.displayText;
 	}
 
 	getIcon(): string {
@@ -36,7 +37,7 @@ export class VideoView extends ItemView {
 
 		// Allows view to save the playback time in the setting state when the view is closed 
 		this.saveTimeOnUnload = saveTimeOnUnload;
-
+		
 		// Create a root element for the view to render into
 		this.root.render(
 			<VideoContainer

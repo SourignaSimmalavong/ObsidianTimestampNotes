@@ -20,6 +20,7 @@ export default class TimestampPlugin extends Plugin {
 	last_seek: DOMHighResTimeStamp = performance.now();
 	cumulated_seek_factor: number = 1;
 	was_seek_forward: boolean = false;
+	speed: number;
 
 	uriToClickLambdas: Map<string, () => void> = new Map<string, () => void>();
 	urlToLeaf: Map<string, WorkspaceLeaf> = new Map<string, WorkspaceLeaf>();
@@ -118,26 +119,13 @@ export default class TimestampPlugin extends Plugin {
 				.catch(reason => console.log("Failed to open " + uri + ": " + reason));
 
 			this.app.workspace.on('active-leaf-change', (activeLeaf) => {
-				const buttonLeaf = this.urlToLeaf.get(uri);
-				
-				if (activeLeaf != null)
-				{	
-					// @ts-ignore
-					console.log(activeLeaf.id);
-				}
-				if (buttonLeaf != null)
-				{	
-					// @ts-ignore
-					console.log(buttonLeaf.id);
-				}
-				
+				const buttonLeaf = this.urlToLeaf.get(uri);				
 
 				if (activeLeaf != null && buttonLeaf != null)
 				{
 					// @ts-ignore
 					if (activeLeaf.id == buttonLeaf.id)
 					{
-						console.log("same => refresh");
 						this.refreshButton(button, uri);
 					}
 				}
@@ -233,7 +221,7 @@ export default class TimestampPlugin extends Plugin {
 
 				// convert current video time into timestamp
 				const leadingZero = (num: number) => num < 10 ? "0" + num.toFixed(0) : num.toFixed(0);
-				const totalSeconds = Number(this.player.getCurrentTime().toFixed(2));
+				const totalSeconds = Math.floor(Number(this.player.getCurrentTime().toFixed(0)));
 				const hours = Math.floor(totalSeconds / 3600);
 				const minutes = Math.floor((totalSeconds - (hours * 3600)) / 60);
 				const seconds = totalSeconds - (hours * 3600) - (minutes * 60);
@@ -346,13 +334,11 @@ export default class TimestampPlugin extends Plugin {
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				if (this.player) 
 				{
-					if(this.player.props.playbackRate < 10)
+					if(this.player.props.playbackRate < this.settings.maxSpeed)
 					{
 						var speedFactor: number = parseFloat(this.settings.speedFactor);
-						if(this.player.props.playbackRate > speedFactor)
-						{
-							this.setPlaybackRate(this.player.props.playbackRate + speedFactor);
-						}
+						this.setPlaybackRate(this.player.props.playbackRate + speedFactor);
+						this.speed = this.player.props.playbackRate + speedFactor;
 					}
 				}
 			}
@@ -369,6 +355,7 @@ export default class TimestampPlugin extends Plugin {
 					if(this.player.props.playbackRate > speedFactor)
 					{
 						this.setPlaybackRate(this.player.props.playbackRate - speedFactor);
+						this.speed = this.player.props.playbackRate - speedFactor;
 					}
 				}
 			}
@@ -381,7 +368,15 @@ export default class TimestampPlugin extends Plugin {
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				if (this.player) 
 				{
-					this.setPlaybackRate(1);
+					// Toggle between reset speed and previous speed.
+					if (this.player.props.playbackRate != 1)
+					{
+						this.setPlaybackRate(1);
+					}
+					else
+					{
+						this.setPlaybackRate(this.speed);
+					}
 				}
 			}
 		});
@@ -485,6 +480,18 @@ export default class TimestampPlugin extends Plugin {
 		// This triggers the React component to be loaded
 		this.app.workspace.getLeavesOfType(VIDEO_VIEW).forEach(async (leaf) => {
 			if (leaf.view instanceof VideoView) {
+
+				var filename: string = "";
+				if (uri.contains("\\"))
+				{
+					filename = uri.substring(uri.lastIndexOf("\\") + 1);
+				}
+				else
+				{
+					filename = uri.substring(uri.lastIndexOf("/") + 1);
+				}
+				filename = decodeURIComponent(filename);
+				leaf.view.displayText = filename;
 
 				const setupPlayer = (player: ReactPlayer, setPlaying: React.Dispatch<React.SetStateAction<boolean>>, setPlaybackRate: React.Dispatch<React.SetStateAction<number>>) => {
 					this.player = player;
@@ -629,7 +636,6 @@ export default class TimestampPlugin extends Plugin {
 	async refreshButton(button : HTMLButtonElement, uri: string){
 		const displayedText: string = button.innerText;
 		button.innerText = "Please wait ...";
-		console.log("Please wait ...");
 		fetch(uri)
 			.then(response => response.blob())
 			.then(blobData => {
@@ -638,12 +644,11 @@ export default class TimestampPlugin extends Plugin {
 				const newBlobURL: string = URL.createObjectURL(blobData);
 				this.uriToClickLambdas.set(uri, this.createLambdaFromURI(uri, newBlobURL, button));
 				button.addEventListener("click", this.uriToClickLambdas.get(uri));
-				console.log("button refreshed");
 			});
 	}
 
 	/////////////////////////////////////////////////////
-	// Code to convert path to URI "stolen" from https://github.com/MichalBures/obsidian-file-path-to-uri/blob/master/main.ts
+	// Code to convert path to URI from https://github.com/MichalBures/obsidian-file-path-to-uri/blob/master/main.ts
 
 	/**
 	 * Does the text have any '\' or '/'?
@@ -724,7 +729,7 @@ export default class TimestampPlugin extends Plugin {
 		}
 	}
 
-	// End of stolen code.
+	// End of code from https://github.com/MichalBures/obsidian-file-path-to-uri/blob/master/main.ts.
 	////////////////////////////////////////////////////
 
 }
