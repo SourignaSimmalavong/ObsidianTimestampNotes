@@ -209,6 +209,33 @@ export default class TimestampPlugin extends Plugin {
 			}
 		});
 
+		this.addCommand({
+			id: 'add-video-html-tag-from-obsidian-url',
+			name: 'Add Local Video HTML tag (<video />) from obsidian url (clipboard)',
+			editorCallback: (editor: Editor, view: MarkdownView) => {
+				this.editor = editor;				
+
+				var clipboardText = clipboard.readText('clipboard');
+				if (!clipboardText) {
+					return;
+				}		
+
+				var filename: string = "";
+				if (clipboardText.contains("\\"))
+				{
+					filename = clipboardText.substring(clipboardText.lastIndexOf("\\") + 1);
+				}
+				else
+				{
+					filename = clipboardText.substring(clipboardText.lastIndexOf("/") + 1);
+				}
+				var relativeFileURI: string = this.obsidianURLToAppLocalURI(clipboardText);
+				editor.replaceSelection("<video controls='' src='" + relativeFileURI + "' style='width: 200px' />");
+
+				return true;
+			}
+		});
+
 		// This command inserts the timestamp of the playing video into the editor
 		this.addCommand({
 			id: 'timestamp-insert',
@@ -610,6 +637,18 @@ export default class TimestampPlugin extends Plugin {
 		relativeFileURI = "http://localhost:" + this.settings.serverPort + relativeFileURI;
 
 		return relativeFileURI;
+	}
+
+	obsidianURLToAppLocalURI(obsidianURL: string) : string{
+		var vaultAbsolutePath: string = this.getVaulteAbsolutePath(this.app);
+		vaultAbsolutePath = vaultAbsolutePath.replace(/\\/g, '/');
+		const file_equal_pattern = 'file=';
+		const file_equal_index = obsidianURL.lastIndexOf(file_equal_pattern);
+		var filepath = obsidianURL.substring(file_equal_index + file_equal_pattern.length);
+		filepath = filepath.replace(/%2F/g, '/');
+		var appLocalURI = "app://local/" + vaultAbsolutePath + "/" + filepath;
+		
+		return appLocalURI;
 	}
 
 	createLambdaFromURI(uri: string, blobURL: string, button: HTMLButtonElement)
